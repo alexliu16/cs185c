@@ -20,7 +20,7 @@
 pip install json-lines
 ```
 
-2. Install textblob (refer to (this)[https://textblob.readthedocs.io/en/dev/quickstart.html#noun-phrase-extraction])
+2. Install textblob (refer to [this](https://textblob.readthedocs.io/en/dev/quickstart.html#noun-phrase-extraction))
 ```
 pip install textblob
 ```
