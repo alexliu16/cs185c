@@ -24,3 +24,10 @@ pip install json-lines
 ```
 pip install textblob
 ```
+
+3. Install NLTK
+```
+pip install NLTK
+//run "Install Certificates.command" in Applications/Python 3.6
+nltk.download() //do this in Pycharm
+```
