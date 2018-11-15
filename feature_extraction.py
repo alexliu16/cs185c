@@ -40,6 +40,7 @@ def extract_features():
     VBZ = []
     CD = []
     PRP = []
+    RB = []
 
     with json_lines.open('training_data/instances.jsonl') as reader:
         for obj in reader:
@@ -50,6 +51,7 @@ def extract_features():
             for pair in blob.tags:
                 tag = pair[1]
                 word = pair[0]
+                
                 if tag == 'NNP':
                     NNP.append(word)
                 elif tag == 'NN':
@@ -66,6 +68,8 @@ def extract_features():
                     CD.append(word)
                 elif tag == 'PRP':
                     PRP.append(word)
+                elif tag == 'RB':
+                    RB.append(word)
 
             # (1) feature – number of NNP in the post
             features.append(len(NNP))
@@ -153,7 +157,7 @@ def extract_features():
 
             # (20) feature — count POS pattern PRP
 
-            
+
             # (21) feature — number of PRP
             features.append(len(PRP))
 
@@ -165,21 +169,21 @@ def extract_features():
                     #print(text)
             features.append(c)
 
-            # (49) feature — number of adverbs
-            c = 0
-            for text in post_text.split():
-                break
+            # (49) feature — number of RB (adverbs)
+            features.append(len(RB))
 
             # (own) feature – whether the post is all uppercase
             if post_text.isupper():
                 #print(post_text)
                 features.append(1)
 
-            # (own) feature – whether the last word ends with a '!' mark
-            if post_text[-1] == '!':
-                features.append(1)
-            else:
-                features.append(0)
+            # (own) feature – whether the last word ends with a '!' mark; more exclamations, more weight
+            c = 0
+            index = -1
+            while post_text[index] == '!':
+                c += 1
+                index -= 1
+            features.append(c)
 
             # (own) feature – whether the post ends with more than one consecutive '.'; more periods, more weight
             c = 0
