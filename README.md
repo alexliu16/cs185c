@@ -31,3 +31,7 @@ pip install NLTK
 //run "Install Certificates.command" in Applications/Python 3.6
 nltk.download() //do this in Pycharm
 ```
+4. Install sklearn
+```
+pip install scikit-learn
+```

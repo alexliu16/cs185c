@@ -1,7 +1,16 @@
 import json_lines
 from textblob import TextBlob
+from sklearn import svm
 
-posts_features = []  # list of extracted features for each social media post
+feature_names = []  # list of all feature names (in order)
+
+training_features = []  # list of extracted features for each social media post in training set
+training_classifications = []  # classifications of whether each post is clickbait/not
+
+test_features = []  # list of extracted features for each social media post in training set
+test_classifications = []  # classifications of whether each post is clickbait/not
+
+max_samples = 2000  # of samples to use for training
 
 '''
 Definitions:
@@ -29,7 +38,8 @@ WP: Wh-pronoun
 EX: Existential there
 '''
 
-def extract_features():
+
+def extract_features(file_name, set_type):
     i = 0
 
     NNP = []
@@ -55,7 +65,7 @@ def extract_features():
     VBN = []
     EX = []
 
-    with json_lines.open('training_data/instances.jsonl') as reader:
+    with json_lines.open(file_name) as reader:
         for obj in reader:
             features = []
             post_text = obj['postText'][0]
@@ -130,7 +140,9 @@ def extract_features():
             features.append(c)
 
             # (6) feature - whether the post starts with a number
-            if post_text[0].isdigit():
+            if len(post_text) == 0:
+                features.append(0)
+            elif post_text[0].isdigit():
                 features.append(1)
             else:
                 features.append(0)
@@ -139,7 +151,10 @@ def extract_features():
             total_chars = 0
             for word in post_text.split():
                 total_chars += len(word)
-            features.append(total_chars / len(post_text.split()))
+            if len(post_text) == 0:
+                features.append(0)
+            else:
+                features.append(total_chars / len(post_text.split()))
 
             # (8) feature — number of IN
             features.append(len(IN))
@@ -177,7 +192,9 @@ def extract_features():
             features.append(len(NN))
 
             # (16) feature – whether the post starts with the following key words
-            if post_text.split()[0] in wwwwwwhw:
+            if len(post_text) == 0:
+                features.append(0)
+            elif post_text.split()[0] in wwwwwwhw:
                 features.append(1)
             else:
                 features.append(0)
@@ -189,7 +206,9 @@ def extract_features():
                 features.append(0)
 
             # (19) feature — count POS pattern this/these NN
-            if 'this' in post_text or 'these' in post_text:
+            if len(post_text) == 0:
+                features.append(0)
+            elif 'this' in post_text or 'these' in post_text:
                 features.append(1)
             else:
                 features.append(0)
@@ -390,31 +409,42 @@ def extract_features():
             # (own) feature – whether the last word ends with a '!' mark; more exclamations, more weight
             c = 0
             index = -1
-            while post_text[index] == '!':
-                c += 1
-                index -= 1
-            features.append(c)
+            if len(post_text) == 0:
+                features.append(0)
+            else:
+                while post_text[index] == '!':
+                    c += 1
+                    index -= 1
+                features.append(c)
 
             # (own) feature – whether the post ends with more than one consecutive '.'; more periods, more weight
             c = 0
             index = -1
-            while post_text[index] == '.':
-                c += 1
-                index -= 1
-            features.append(c)
+            if len(post_text) == 0:
+                features.append(0)
+            else:
+                while post_text[index] == '.':
+                    c += 1
+                    index -= 1
+                features.append(c)
 
             # (own) feature - whether the post ends with a number
-            if post_text[-1].isdigit():
-                features.append(1)
-            else:
+            if len(post_text) == 0:
                 features.append(0)
+            else:
+                if post_text[-1].isdigit():
+                    features.append(1)
+                else:
+                    features.append(0)
 
             ############ End of features ############
-            posts_features.append(features)
+            if set_type == "training":
+                training_features.append(features)
+            else:
+                test_features.append(features)
 
-            # used for testing smaller number of files - delete later
             i += 1
-            if i > 100:
+            if set_type == "training" and i == max_samples:
                 break
 
 
@@ -432,16 +462,126 @@ def is_possessive(word):
     else:
         return False
 
-def read_file():
-    # extract features into post_features
-    extract_features()
 
-    for features in posts_features:
-        print(features)
+# retrieve classifications for social media posts and insert it into specified list
+def extract_training_classifications(file_path, set_type):
+    i = 0
+    with json_lines.open(file_path) as reader:
+        for obj in reader:
+            classification = obj["truthClass"]
+            if classification == "clickbait":
+                if set_type == "training":
+                    training_classifications.append(1)
+                else:
+                    test_classifications.append(1)
+            else:
+                if set_type == "training":
+                    training_classifications.append(0)
+                else:
+                    test_classifications.append(0)
+
+            # Only collect features for the number of samples specified (takes too long for all 17,000)
+            i += 1
+            if set_type == "training" and i == max_samples:
+                break;
+
+
+def read_files():
+    # extract training set features
+    print("Extracting training set features")
+    extract_features('training_data/instances.jsonl', "training")
+    print("Finished extracting training set features!\n")
+
+    # extract training set classifications
+    print("Extracting training set classifications")
+    extract_training_classifications('training_data/truth.jsonl', "training")
+    print("Finished extracting training set classifications!\n")
+
+    # extract test set features
+    print("Extracting test set features")
+    extract_features('test_data/instances.jsonl', "test")
+    print("Finished extracting test set features!\n")
+
+    # extract test set classifications
+    print("Extracting test set classifications")
+    extract_training_classifications('test_data/truth.jsonl', "test")
+    print("Finished extracting test set classifications!\n")
+
+
+# Put all feature names (in order) in feature_names - used for RFE
+# Update this if add more features
+def create_feature_names_list():
+    feature_names.extend((
+        "Number of NNP", "Number of tokens", "Word length of post text", "POS 2-gram NNP NNP",
+        "Whether the post starts with a number", "Average length of words in post", "Number of IN", "POS 2-gram NNP VBZ",
+        "POS 2-gram IN NNP", "Length of longest word in post text", "Number of WRB", "Number of NN",
+        "Whether post starts with 5W1H", "Whether ? exists", "Count POS pattern this/these NN", "Count POS pattern PRP",
+        "Number of VBZ", "POS 3-gram NNP NNP VBZ", "POS-gram NN IN NNP", "POS 2-gram NNP", "POS 2-gram PRP VBP",
+        "Number of WP", "Number of DT", "POS 2-gram NNP IN", "POS 3-gram IN NNP NNP", "Number of POS",
+        "POS 2-gram IN NN", "Number of ,", "POS 2-gram NNP NNS", "POS 2-gram IN JJ", "POS 2-gram NNP POS",
+        "Number of WDT", "POS 2-gram NN NN", "POS 2-gram NN NNP", "POS 2-gram NNP VBD", "Number of RB",
+        "POS 3-gram NNP NNP NNP", "POS 3-gram NNP NNP NN", "Number of RBS", "number of VBN", "POS 2-gram VBN IN",
+        "Whether exists NUMBER NP VB", "POS 2-gram JJ NNP", "POS e-gram NNP NN NN", "POS 2-gram DT NN", "Whether Exist EX",
+        "Whether post is all uppercase", "Whether last word ends with !",
+        "Whether post ends with more than one consecutive .", "Whether post ends with a number"
+    ))
+
+
+def rfe_svm(training_set_features, training_set_class, test_set_features, test_set_class):
+    # perform RFE until one feature left
+    while len(training_set_features[0]) >= 1:
+        # train linear SVM
+        lin_clf = svm.LinearSVC(max_iter=100000)
+        lin_clf.fit(training_set_features, training_set_class)
+
+        # classify test set
+        results = lin_clf.predict(test_set_features)
+
+        # get accuracy
+        print("Number of features: ", len(training_set_features[0]))
+        print("Features: ", feature_names)
+        get_accuracy(results, test_set_class)
+
+        # get weights and find minimum
+        weights = lin_clf.coef_[0]
+
+        min_index = -1
+        min_value = 100000
+
+        for i, weight in enumerate(weights):
+            val = abs(weight)
+            if val < min_value:
+                min_index = i
+                min_value = val
+
+        # remove feature from training set and test set
+        for feature_set in training_set_features:
+            del feature_set[min_index]
+
+        for feature_set in test_set_features:
+            del feature_set[min_index]
+
+        # remove feature from list of feature names
+        del feature_names[min_index]
+
+        print("\n")
+
+
+def get_accuracy(results, actual):
+    num_correct = 0
+    i = 0
+    for result in results:
+        if result == actual[i]:
+            num_correct += 1
+    print("Accuracy is ", num_correct / len(results) * 100, "%")
 
 
 def main():
-    read_file()
+    create_feature_names_list()
+    read_files()
+    rfe_svm(training_features, training_classifications, test_features, test_classifications)
+
 
 if __name__ == '__main__':
     main()
+
