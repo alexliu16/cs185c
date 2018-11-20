@@ -4,6 +4,7 @@ from sklearn import svm
 import pyrenn # for rnn
 
 import matplotlib.pyplot as mpl
+from sklearn.neighbors import KNeighborsClassifier
 
 feature_names = []  # list of all feature names (in order)
 
@@ -13,7 +14,7 @@ training_classifications = []  # classifications of whether each post is clickba
 test_features = []  # list of extracted features for each social media post in training set
 test_classifications = []  # classifications of whether each post is clickbait/not
 
-max_samples = 2000  # of samples to use for training
+max_samples = 500  # of samples to use for training
 
 '''
 Definitions:
@@ -406,7 +407,6 @@ def extract_features(file_name, set_type):
 
             # (own) feature – whether the post is all uppercase
             if post_text.isupper():
-                #print(post_text)
                 features.append(1)
 
             # (own) feature – whether the last word ends with a '!' mark; more exclamations, more weight
@@ -528,6 +528,9 @@ def create_feature_names_list():
 
 
 def rfe_svm(training_set_features, training_set_class, test_set_features, test_set_class):
+    max_accuracy = -10000
+    best_features = []
+
     # perform RFE until one feature left
     while len(training_set_features[0]) >= 1:
         # train linear SVM
@@ -540,7 +543,10 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
         # get accuracy
         print("Number of features: ", len(training_set_features[0]))
         print("Features: ", feature_names)
-        get_accuracy(results, test_set_class)
+        accuracy = get_accuracy(results, test_set_class)
+        if accuracy > max_accuracy:
+            max_accuracy = accuracy
+            best_features = feature_names.copy()
 
         # get weights and find minimum
         weights = lin_clf.coef_[0]
@@ -566,20 +572,49 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
 
         print("\n")
 
+    # print features that resulted in highest accuracy
+    print("Best number of features to use for classification:", len(best_features))
+    print(best_features)
 
+
+def knn(training_set_features, training_set_classifications, test_set_features, test_set_classifications):
+    n_values = [1, 2, 5, 10]
+    for n in n_values:
+        # train the model
+        classifier = KNeighborsClassifier(n_neighbors=n)
+        classifier.fit(training_set_features, training_set_classifications)
+
+        # predict output
+        predicted = classifier.predict(test_set_features)
+
+        # Compute results
+        print("KNN using n =", n, ": ")
+        get_accuracy(predicted, test_set_classifications)
+        print("\n")
+
+
+# TODO: Goal should be predicting the truth mean - NOT whether it's clickbait or not
 def get_accuracy(results, actual):
     num_correct = 0
     i = 0
     for result in results:
         if result == actual[i]:
             num_correct += 1
-    print("Accuracy is ", num_correct / len(results) * 100, "%")
+    print("Accuracy is", round(num_correct / len(results) * 100, 4), "%")
+
+    return num_correct / len(results)
 
 
 def main():
+    # extract features from training and test set
     create_feature_names_list()
     read_files()
+
+    # classify using SVM and perform RFE (TODO: should also test on training set)
     rfe_svm(training_features, training_classifications, test_features, test_classifications)
+
+    # classify using K-NN - test on test set (TODO: should also test on training set)
+    # knn(training_features, training_classifications, test_features, test_classifications)
 
 
 if __name__ == '__main__':
