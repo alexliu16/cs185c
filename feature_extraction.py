@@ -1,6 +1,9 @@
 import json_lines
 from textblob import TextBlob
 from sklearn import svm
+import pyrenn # for rnn
+
+import matplotlib.pyplot as mpl
 
 feature_names = []  # list of all feature names (in order)
 
@@ -448,19 +451,16 @@ def extract_features(file_name, set_type):
                 break
 
 
-def is_possessive(word):
-    if '\'' in word:
-        if word[-1] == 's':
-            if word[-2] == 'e' and word[-3] == '\'':
-                return True
-            elif word[-2] == '\'':
-                return True
-            else:
-                return False
-        elif word[-1] == '\'':
-            return True
-    else:
-        return False
+def rnn(test_data):
+    net = pyrenn.CreateNN(nn=1)
+    P = 1
+    Y = 1
+    net = []
+    # set the number of iterations (epochs) to 100 and the termination error to 1e-5.
+    # Training will stop after 100 iterations or when Error <= E_stop.
+    net = pyrenn.train_LM(P, Y, net, verbose=true, k_max=100, E_stop=1e-5)
+    y = pyrenn.NNOut(P, net)
+    ytest = pyrenn.NNOut(test_data, net)
 
 
 # retrieve classifications for social media posts and insert it into specified list
