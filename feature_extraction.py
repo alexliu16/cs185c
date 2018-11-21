@@ -1,11 +1,17 @@
 import json_lines
 import jsonlines
+
 from textblob import TextBlob
-from sklearn import svm
-import pyrenn # for rnn
+import pyrenn  # for rnn
 
 import pandas as pd
 import matplotlib.pyplot as mpl
+
+from sklearn import svm
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import SVR
+from sklearn.svm import SVC
+
 from sklearn.neighbors import KNeighborsClassifier
 
 feature_names = []  # list of all feature names (in order)
@@ -15,10 +21,11 @@ training_classifications = []  # classifications of whether each post is clickba
 
 test_features = []  # list of extracted features for each social media post in training set
 test_classifications = []  # classifications of whether each post is clickbait/not
+test_ids = []
 
-max_samples = 500  # of samples to use for training
+max_samples = 3000  # of samples to use for training
 
-id_and_score = [] # 2-d array, id then score
+id_and_score = []  # 2-d array, id then score
 id_and_score.append(['1111','1.0'])
 id_and_score.append(['113313211','0.33'])
 
@@ -133,6 +140,7 @@ def extract_features(file_name, set_type):
                     #print(tag)
                     continue
 
+            """
             # (1) feature – number of NNP in the post
             features.append(len(NNP))
 
@@ -167,7 +175,8 @@ def extract_features(file_name, set_type):
                 features.append(total_chars / len(post_text.split()))
 
             # (8) feature — number of IN
-            features.append(len(IN))
+            features.append(len(IN)) 
+            """
 
             # (9) feature – POS 2-gram NNP VBZ
             c = 0
@@ -176,13 +185,14 @@ def extract_features(file_name, set_type):
                     c += 1
             features.append(c)
 
-            # (10) feature – POS 2-gram IN NNO
+            # (10) feature – POS 2-gram IN NNP
             c = 0
             for pair in blob.ngrams(n=2):
                 if pair[0] in IN and pair[1] in NNP:
                     c += 1
             features.append(c)
 
+            """
             # (11) feature – length of longest word in the post
             c = 0
             for word in post_text.split():
@@ -208,6 +218,7 @@ def extract_features(file_name, set_type):
                 features.append(1)
             else:
                 features.append(0)
+            """
 
             # (17) feature – whether a '?' exists
             if '?' in post_text:
@@ -223,8 +234,7 @@ def extract_features(file_name, set_type):
             else:
                 features.append(0)
 
-            # (20) feature — count POS pattern PRP
-
+            """
 
             # (21) feature — number of PRP
             features.append(len(PRP))
@@ -286,9 +296,13 @@ def extract_features(file_name, set_type):
                 if triple[0] in IN and triple[1] in NNP and triple[2] in NNP:
                     c += 1
             features.append(c)
+            
+            """
 
             # (35) feature – Number of POS
             features.append(len(POS))
+
+            """
 
             # (36) feature - POS 2-gram IN NN
             c = 0
@@ -366,10 +380,13 @@ def extract_features(file_name, set_type):
                 if triple[0] in NNP and triple[1] in NNP and triple[2] in NN:
                     c += 1
             features.append(c)
+            
+            """
 
             # (53) feature — number of RBS
             features.append(len(RBS))
 
+            """
             # (54) feature — number of VBN
             features.append(len(VBN))
 
@@ -445,6 +462,8 @@ def extract_features(file_name, set_type):
                     features.append(1)
                 else:
                     features.append(0)
+                    
+            """
 
             ############ End of features ############
             if set_type == "training":
@@ -453,7 +472,7 @@ def extract_features(file_name, set_type):
                 test_features.append(features)
 
             i += 1
-            if set_type == "training" and i == max_samples:
+            if i == max_samples: #set_type == "training" and
                 break
 
 
@@ -476,21 +495,17 @@ def rnn(training_data, test_data):
 
 
 # retrieve classifications for social media posts and insert it into specified list
-def extract_training_classifications(file_path, set_type):
+def extract_classifications(file_path, set_type):
     i = 0
     with json_lines.open(file_path) as reader:
         for obj in reader:
-            classification = obj["truthClass"]
-            if classification == "clickbait":
-                if set_type == "training":
-                    training_classifications.append(1)
-                else:
-                    test_classifications.append(1)
+            classification = obj["truthMean"]
+            # classification = 1 if obj["truthClass"] == "clickbait" else 0
+            if set_type == "training":
+                training_classifications.append(classification)
             else:
-                if set_type == "training":
-                    training_classifications.append(0)
-                else:
-                    test_classifications.append(0)
+                test_classifications.append(classification)
+                test_ids.append(obj["id"])
 
             # Only collect features for the number of samples specified (takes too long for all 17,000)
             i += 1
@@ -506,7 +521,7 @@ def read_files():
 
     # extract training set classifications
     print("Extracting training set classifications")
-    extract_training_classifications('training_data/truth.jsonl', "training")
+    extract_classifications('training_data/truth.jsonl', "training")
     print("Finished extracting training set classifications!\n")
 
     # extract test set features
@@ -516,7 +531,7 @@ def read_files():
 
     # extract test set classifications
     print("Extracting test set classifications")
-    extract_training_classifications('test_data/truth.jsonl', "test")
+    extract_classifications('test_data/truth.jsonl', "test")
     print("Finished extracting test set classifications!\n")
 
 
@@ -539,6 +554,7 @@ def create_feature_names_list():
     ))
 
 
+# Use RFE to find the most important features to use
 def rfe_svm(training_set_features, training_set_class, test_set_features, test_set_class):
     max_accuracy = -10000
     best_features = []
@@ -546,11 +562,11 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
     # perform RFE until one feature left
     while len(training_set_features[0]) >= 1:
         # train linear SVM
-        lin_clf = svm.LinearSVC(max_iter=100000)
-        lin_clf.fit(training_set_features, training_set_class)
+        clf = svm.LinearSVC(max_iter=100000)
+        clf.fit(training_set_features, training_set_class)
 
         # classify test set
-        results = lin_clf.predict(test_set_features)
+        results = clf.predict(test_set_features)
 
         # get accuracy
         print("Number of features: ", len(training_set_features[0]))
@@ -561,14 +577,14 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
             best_features = feature_names.copy()
 
         # get weights and find minimum
-        weights = lin_clf.coef_[0]
+        weights = clf.coef_[0]
 
         min_index = -1
         min_value = 100000
 
         for i, weight in enumerate(weights):
             val = abs(weight)
-            if val < min_value:
+            if val <= min_value:
                 min_index = i
                 min_value = val
 
@@ -587,6 +603,19 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
     # print features that resulted in highest accuracy
     print("Best number of features to use for classification:", len(best_features))
     print(best_features)
+
+
+# compute SVM based on truth mean
+def svm(training_set_features, training_set_class, test_set_features, test_set_class):
+    # train SVM
+    clf = SVR()
+    clf.fit(training_set_features, training_set_class)
+
+    # classify test set
+    results = clf.predict(test_set_features)
+
+    # write predictions to file
+    create_predictions_file(results)
 
 
 def knn(training_set_features, training_set_classifications, test_set_features, test_set_classifications):
@@ -626,6 +655,7 @@ def estimate_to_class(means):
 
     return means
 
+
 def get_truth_means(test_set_features):
     mean = 0
     means = []
@@ -658,7 +688,7 @@ def normalize(arr):
     return arr
 
 
-# TODO: Goal should be predicting the truth mean - NOT whether it's clickbait or not
+# used to determine accuracy for whether post is clickbait/not clickbait
 def get_accuracy(results, actual):
     num_correct = 0
     i = 0
@@ -671,18 +701,35 @@ def get_accuracy(results, actual):
 
 
 def create_file():
-    with jsonlines.open('output.jsonl', mode='w') as writer:
+    with jsonlines.open('predictions.jsonl', mode='w') as writer:
         for id, score in id_and_score:
             writer.write({"id": id, "clickbaitScore": score})
     writer.close()
 
+
+# created a .jsonl file containing the predictions - each line includes id and prediction
+def create_predictions_file(predictions):
+    with jsonlines.open('predictions.jsonl', mode='w') as writer:
+        i = 0
+        for id in test_ids:
+            writer.write({"id": id, "clickbaitScore": predictions[i]})
+            i += 1
+    writer.close()
+
+
 def main():
     # extract features from training and test set
-    #create_feature_names_list()
-    #read_files()
+    create_feature_names_list()
+    read_files()
 
     # classify using SVM and perform RFE (TODO: should also test on training set)
     #rfe_svm(training_features, training_classifications, test_features, test_classifications)
+
+    # classify using linear SVM and perform RFE to determine most important features
+    # ['POS 2-gram NNP VBZ', 'POS 2-gram IN NNP', 'Whether ? exists', 'Count POS pattern this/these NN', 'Number of POS', 'POS 2-gram IN JJ', 'Number of RBS']
+    # rfe_svm(training_features, training_classifications, test_features, test_classifications)
+
+    svm(training_features, training_classifications, test_features, test_classifications)
 
     # classify using K-NN - test on test set (TODO: should also test on training set)
     #knn(training_features, training_classifications, test_features, test_classifications)
