@@ -1,8 +1,10 @@
 import json_lines
+import jsonlines
 from textblob import TextBlob
 from sklearn import svm
 import pyrenn # for rnn
 
+import pandas as pd
 import matplotlib.pyplot as mpl
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -15,6 +17,10 @@ test_features = []  # list of extracted features for each social media post in t
 test_classifications = []  # classifications of whether each post is clickbait/not
 
 max_samples = 500  # of samples to use for training
+
+id_and_score = [] # 2-d array, id then score
+id_and_score.append(['1111','1.0'])
+id_and_score.append(['113313211','0.33'])
 
 '''
 Definitions:
@@ -451,14 +457,20 @@ def extract_features(file_name, set_type):
                 break
 
 
-def rnn(test_data):
-    net = pyrenn.CreateNN(nn=1)
-    P = 1
-    Y = 1
-    net = []
+def rnn(training_data, test_data):
+    net = pyrenn.CreateNN([len(test_features),3,3,1])
+
+
+    # training data
+    P = training_data # input
+    Y = 1 # output
+    # test data
+    Ptest = 1 # input
+    Ytest =  1 # output
+
     # set the number of iterations (epochs) to 100 and the termination error to 1e-5.
     # Training will stop after 100 iterations or when Error <= E_stop.
-    net = pyrenn.train_LM(P, Y, net, verbose=true, k_max=100, E_stop=1e-5)
+    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=100, E_stop=1e-5)
     y = pyrenn.NNOut(P, net)
     ytest = pyrenn.NNOut(test_data, net)
 
@@ -483,7 +495,7 @@ def extract_training_classifications(file_path, set_type):
             # Only collect features for the number of samples specified (takes too long for all 17,000)
             i += 1
             if set_type == "training" and i == max_samples:
-                break;
+                break
 
 
 def read_files():
@@ -587,10 +599,63 @@ def knn(training_set_features, training_set_classifications, test_set_features, 
         # predict output
         predicted = classifier.predict(test_set_features)
 
+        get_truth_means(test_set_features)
+
         # Compute results
-        print("KNN using n =", n, ": ")
+        print("KNN using n =", n, " : ")
         get_accuracy(predicted, test_set_classifications)
         print("\n")
+
+
+def estimate_to_class(means):
+    # 0, 0.33, 0.66, 1
+    p1 = 0.33 / 2
+    p2 = (0.66 + 0.33) / 2
+    p3 = (1 + 0.66) / 2
+
+    for i in range(len(means)):
+        val = means[i]
+        if p1 < val:
+            means[i] = 0
+        elif p1 < val < p2:
+            means[i] = 0.33
+        elif p2 < val < p3:
+            means[i] = 0.66
+        elif p3 < val:
+            means[i] = 1
+
+    return means
+
+def get_truth_means(test_set_features):
+    mean = 0
+    means = []
+
+    for feature_list in test_set_features:
+        for feature in feature_list:
+            mean += feature
+        mean /= len(feature_list)
+        means.append(mean)
+        mean = 0
+
+    means = normalize(means)
+    means = estimate_to_class(means)
+    #print (means)
+
+
+def normalize(arr):
+    max = -99999
+    min = 99999
+
+    for m in arr:
+        if m > max:
+            max = m
+        if m < min:
+            min = m
+
+    for i in range(len(arr)):
+        arr[i] = (arr[i] - min) / (max - min)
+    
+    return arr
 
 
 # TODO: Goal should be predicting the truth mean - NOT whether it's clickbait or not
@@ -605,16 +670,26 @@ def get_accuracy(results, actual):
     return num_correct / len(results)
 
 
+def create_file():
+    with jsonlines.open('output.jsonl', mode='w') as writer:
+        for id, score in id_and_score:
+            writer.write({"id": id, "clickbaitScore": score})
+    writer.close()
+
 def main():
     # extract features from training and test set
-    create_feature_names_list()
-    read_files()
+    #create_feature_names_list()
+    #read_files()
 
     # classify using SVM and perform RFE (TODO: should also test on training set)
-    rfe_svm(training_features, training_classifications, test_features, test_classifications)
+    #rfe_svm(training_features, training_classifications, test_features, test_classifications)
 
     # classify using K-NN - test on test set (TODO: should also test on training set)
-    # knn(training_features, training_classifications, test_features, test_classifications)
+    #knn(training_features, training_classifications, test_features, test_classifications)
+
+    # classify using RNN - test on test set
+    # rnn(training_features, training_classifications, test_features, test_classifications)
+    create_file()
 
 
 if __name__ == '__main__':
