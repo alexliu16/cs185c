@@ -699,17 +699,17 @@ def get_accuracy(results, actual):
 
     return num_correct / len(results)
 
-
+'''
 def create_file():
-    with jsonlines.open('predictions.jsonl', mode='w') as writer:
+    with jsonlines.open('evaluation/predictions.jsonl', mode='w') as writer:
         for id, score in id_and_score:
             writer.write({"id": id, "clickbaitScore": score})
     writer.close()
-
+'''
 
 # created a .jsonl file containing the predictions - each line includes id and prediction
 def create_predictions_file(predictions):
-    with jsonlines.open('predictions.jsonl', mode='w') as writer:
+    with jsonlines.open('evaluation/predictions.jsonl', mode='w') as writer:
         i = 0
         for id in test_ids:
             writer.write({"id": id, "clickbaitScore": predictions[i]})
@@ -736,7 +736,7 @@ def main():
 
     # classify using RNN - test on test set
     # rnn(training_features, training_classifications, test_features, test_classifications)
-    create_file()
+    #create_predictions_file()
 
 
 if __name__ == '__main__':
