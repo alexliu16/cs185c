@@ -25,10 +25,6 @@ test_ids = []
 
 max_samples = 3000  # of samples to use for training
 
-id_and_score = []  # 2-d array, id then score
-id_and_score.append(['1111','1.0'])
-id_and_score.append(['113313211','0.33'])
-
 '''
 Definitions:
 NNP: Proper noun, singular
@@ -699,13 +695,6 @@ def get_accuracy(results, actual):
 
     return num_correct / len(results)
 
-'''
-def create_file():
-    with jsonlines.open('evaluation/predictions.jsonl', mode='w') as writer:
-        for id, score in id_and_score:
-            writer.write({"id": id, "clickbaitScore": score})
-    writer.close()
-'''
 
 # created a .jsonl file containing the predictions - each line includes id and prediction
 def create_predictions_file(predictions):
