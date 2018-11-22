@@ -12,7 +12,7 @@ from sklearn.multiclass import OneVsRestClassifier
 from sklearn.svm import SVR
 from sklearn.svm import LinearSVC
 
-from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neighbors import KNeighborsRegressor
 
 feature_names = []  # list of all feature names (in order)
 
@@ -623,21 +623,16 @@ def svm(training_set_features, training_set_class, test_set_features, test_set_c
 
 
 def knn(training_set_features, training_set_classifications, test_set_features, test_set_classifications):
-    n_values = [1, 2, 5, 10]
-    for n in n_values:
-        # train the model
-        classifier = KNeighborsClassifier(n_neighbors=n)
-        classifier.fit(training_set_features, training_set_classifications)
+    # train the model
+    n = 10
+    classifier = KNeighborsRegressor(n_neighbors=n, weights='distance')
+    classifier.fit(training_set_features, training_set_classifications)
 
-        # predict output
-        predicted = classifier.predict(test_set_features)
+    # predict output
+    predictions = classifier.predict(test_set_features)
 
-        get_truth_means(test_set_features)
-
-        # Compute results
-        print("KNN using n =", n, " : ")
-        get_accuracy(predicted, test_set_classifications)
-        print("\n")
+    # write predictions to file
+    create_predictions_file(predictions)
 
 
 def estimate_to_class(means):
@@ -726,7 +721,7 @@ def main():
     #svm(training_features, training_classifications, test_features, test_classifications)
 
     # classify using K-NN - test on test set (TODO: should also test on training set)
-    #knn(training_features, training_classifications, test_features, test_classifications)
+    knn(training_features, training_classifications, test_features, test_classifications)
 
     # classify using RNN - test on test set
     # rnn(training_features, training_classifications, test_features, test_classifications)
