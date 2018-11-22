@@ -12,41 +12,41 @@ measure {
 }
 measure {
  key: "Explained variance"
- value: "-0.06513755693732715"
+ value: "-0.061915068994604194"
 }
 measure {
  key: "Mean absolute error"
- value: "0.2003660078542997"
+ value: "0.20001249644868577"
 }
 measure {
  key: "Mean squared error"
- value: "0.06185835141650414"
+ value: "0.06146823053634331"
 }
 measure {
  key: "Median absolute error"
- value: "0.1789961162135196"
+ value: "0.1804355860985363"
 }
 measure {
  key: "R2 score"
- value: "-0.11918323973189837"
+ value: "-0.112124908228596"
 }
 measure {
  key: "Normalized mean squared error"
- value: "1.1191832397318984"
+ value: "1.112124908228596"
 }
 measure {
  key: "Accuracy"
- value: "0.681577877185848"
+ value: "0.6832045546970313"
 }
 measure {
  key: "Precision"
- value: "0.26666666666666666"
+ value: "0.28205128205128205"
 }
 measure {
  key: "Recall"
- value: "0.015748031496062992"
+ value: "0.014435695538057743"
 }
 measure {
  key: "F1 score"
- value: "0.02973977695167286"
+ value: "0.02746566791510612"
 }

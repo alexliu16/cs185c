@@ -10,7 +10,7 @@ import matplotlib.pyplot as mpl
 from sklearn import svm
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.svm import SVR
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
 
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -23,7 +23,7 @@ test_features = []  # list of extracted features for each social media post in t
 test_classifications = []  # classifications of whether each post is clickbait/not
 test_ids = []
 
-max_samples = 3000  # of samples to use for training
+max_samples = 20000  # of samples to use for training
 
 '''
 Definitions:
@@ -152,6 +152,7 @@ def extract_features(file_name, set_type):
                 if pair[0] in NNP and pair[1] in NNP:
                     c += 1
             features.append(c)
+            """
 
             # (6) feature - whether the post starts with a number
             if len(post_text) == 0:
@@ -161,6 +162,7 @@ def extract_features(file_name, set_type):
             else:
                 features.append(0)
 
+            """
             # (7) feature - average length of words in post
             total_chars = 0
             for word in post_text.split():
@@ -172,6 +174,7 @@ def extract_features(file_name, set_type):
 
             # (8) feature — number of IN
             features.append(len(IN)) 
+            
             """
 
             # (9) feature – POS 2-gram NNP VBZ
@@ -180,7 +183,7 @@ def extract_features(file_name, set_type):
                 if pair[0] in NNP and pair[1] in VBZ:
                     c += 1
             features.append(c)
-
+            
             # (10) feature – POS 2-gram IN NNP
             c = 0
             for pair in blob.ngrams(n=2):
@@ -189,6 +192,7 @@ def extract_features(file_name, set_type):
             features.append(c)
 
             """
+            
             # (11) feature – length of longest word in the post
             c = 0
             for word in post_text.split():
@@ -206,17 +210,19 @@ def extract_features(file_name, set_type):
 
             # (14) feature – number of NN
             features.append(len(NN))
+            
+            """
 
             # (16) feature – whether the post starts with the following key words
+            wwwwwwhw = ['who', 'what', 'when', 'where', 'why', 'how', 'which']
             if len(post_text) == 0:
                 features.append(0)
             elif post_text.split()[0] in wwwwwwhw:
                 features.append(1)
             else:
                 features.append(0)
-            """
 
-            # (17) feature – whether a '?' exists
+            #(17) feature – whether a '?' exists
             if '?' in post_text:
                 features.append(1)
             else:
@@ -291,7 +297,7 @@ def extract_features(file_name, set_type):
             for triple in blob.ngrams(n=3):
                 if triple[0] in IN and triple[1] in NNP and triple[2] in NNP:
                     c += 1
-            features.append(c)
+            features.append(c)     
             
             """
 
@@ -378,7 +384,7 @@ def extract_features(file_name, set_type):
             features.append(c)
             
             """
-
+            
             # (53) feature — number of RBS
             features.append(len(RBS))
 
@@ -427,6 +433,8 @@ def extract_features(file_name, set_type):
             # (own) feature – whether the post is all uppercase
             if post_text.isupper():
                 features.append(1)
+            else:
+                features.append(0)
 
             # (own) feature – whether the last word ends with a '!' mark; more exclamations, more weight
             c = 0
@@ -449,6 +457,8 @@ def extract_features(file_name, set_type):
                     c += 1
                     index -= 1
                 features.append(c)
+                
+            """
 
             # (own) feature - whether the post ends with a number
             if len(post_text) == 0:
@@ -458,8 +468,6 @@ def extract_features(file_name, set_type):
                     features.append(1)
                 else:
                     features.append(0)
-                    
-            """
 
             ############ End of features ############
             if set_type == "training":
@@ -539,7 +547,7 @@ def create_feature_names_list():
         "Whether the post starts with a number", "Average length of words in post", "Number of IN", "POS 2-gram NNP VBZ",
         "POS 2-gram IN NNP", "Length of longest word in post text", "Number of WRB", "Number of NN",
         "Whether post starts with 5W1H", "Whether ? exists", "Count POS pattern this/these NN", "Count POS pattern PRP",
-        "Number of VBZ", "POS 3-gram NNP NNP VBZ", "POS-gram NN IN NNP", "POS 2-gram NNP", "POS 2-gram PRP VBP",
+        "Number of VBZ", "POS 3-gram NNP NNP VBZ", "POS 2-gram NN IN", "POS-gram NN IN NNP", "POS 2-gram NNP", "POS 2-gram PRP VBP",
         "Number of WP", "Number of DT", "POS 2-gram NNP IN", "POS 3-gram IN NNP NNP", "Number of POS",
         "POS 2-gram IN NN", "Number of ,", "POS 2-gram NNP NNS", "POS 2-gram IN JJ", "POS 2-gram NNP POS",
         "Number of WDT", "POS 2-gram NN NN", "POS 2-gram NN NNP", "POS 2-gram NNP VBD", "Number of RB",
@@ -558,7 +566,7 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
     # perform RFE until one feature left
     while len(training_set_features[0]) >= 1:
         # train linear SVM
-        clf = svm.LinearSVC(max_iter=100000)
+        clf = LinearSVC(max_iter=100000)
         clf.fit(training_set_features, training_set_class)
 
         # classify test set
@@ -604,7 +612,7 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
 # compute SVM based on truth mean
 def svm(training_set_features, training_set_class, test_set_features, test_set_class):
     # train SVM
-    clf = SVR()
+    clf = SVR(gamma="auto")
     clf.fit(training_set_features, training_set_class)
 
     # classify test set
@@ -696,7 +704,7 @@ def get_accuracy(results, actual):
     return num_correct / len(results)
 
 
-# created a .jsonl file containing the predictions - each line includes id and prediction
+# create a .jsonl file containing the predictions - each line includes id and prediction
 def create_predictions_file(predictions):
     with jsonlines.open('evaluation/predictions.jsonl', mode='w') as writer:
         i = 0
@@ -711,14 +719,11 @@ def main():
     create_feature_names_list()
     read_files()
 
-    # classify using SVM and perform RFE (TODO: should also test on training set)
-    #rfe_svm(training_features, training_classifications, test_features, test_classifications)
-
     # classify using linear SVM and perform RFE to determine most important features
     # ['POS 2-gram NNP VBZ', 'POS 2-gram IN NNP', 'Whether ? exists', 'Count POS pattern this/these NN', 'Number of POS', 'POS 2-gram IN JJ', 'Number of RBS']
     # rfe_svm(training_features, training_classifications, test_features, test_classifications)
 
-    svm(training_features, training_classifications, test_features, test_classifications)
+    #svm(training_features, training_classifications, test_features, test_classifications)
 
     # classify using K-NN - test on test set (TODO: should also test on training set)
     #knn(training_features, training_classifications, test_features, test_classifications)
