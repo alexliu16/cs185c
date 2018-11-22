@@ -14,6 +14,8 @@ from sklearn.svm import LinearSVC
 
 from sklearn.neighbors import KNeighborsRegressor
 
+from sklearn.ensemble import RandomForestRegressor
+
 feature_names = []  # list of all feature names (in order)
 
 training_features = []  # list of extracted features for each social media post in training set
@@ -23,7 +25,7 @@ test_features = []  # list of extracted features for each social media post in t
 test_classifications = []  # classifications of whether each post is clickbait/not
 test_ids = []
 
-max_samples = 20000  # of samples to use for training
+max_samples = 5000  # of samples to use for training
 
 '''
 Definitions:
@@ -612,11 +614,11 @@ def rfe_svm(training_set_features, training_set_class, test_set_features, test_s
 # compute SVM based on truth mean
 def svm(training_set_features, training_set_class, test_set_features, test_set_class):
     # train SVM
-    clf = SVR(gamma="auto")
-    clf.fit(training_set_features, training_set_class)
+    svr = SVR(gamma="auto")
+    svr.fit(training_set_features, training_set_class)
 
     # classify test set
-    results = clf.predict(test_set_features)
+    results = svr.predict(test_set_features)
 
     # write predictions to file
     create_predictions_file(results)
@@ -625,11 +627,23 @@ def svm(training_set_features, training_set_class, test_set_features, test_set_c
 def knn(training_set_features, training_set_classifications, test_set_features, test_set_classifications):
     # train the model
     n = 10
-    classifier = KNeighborsRegressor(n_neighbors=n, weights='distance')
-    classifier.fit(training_set_features, training_set_classifications)
+    regr = KNeighborsRegressor(n_neighbors=n, weights='distance')
+    regr.fit(training_set_features, training_set_classifications)
 
     # predict output
-    predictions = classifier.predict(test_set_features)
+    predictions = regr.predict(test_set_features)
+
+    # write predictions to file
+    create_predictions_file(predictions)
+
+
+def random_forest(training_set_features, training_set_classifications, test_set_features, test_set_classifications):
+    # train the model
+    regr = RandomForestRegressor(random_state=0, n_estimators=100)
+    regr.fit(training_set_features, training_set_classifications)
+
+    # predict output
+    predictions = regr.predict(test_set_features)
 
     # write predictions to file
     create_predictions_file(predictions)
@@ -721,7 +735,10 @@ def main():
     #svm(training_features, training_classifications, test_features, test_classifications)
 
     # classify using K-NN - test on test set (TODO: should also test on training set)
-    knn(training_features, training_classifications, test_features, test_classifications)
+    #knn(training_features, training_classifications, test_features, test_classifications)
+
+    # classify using random forest
+    random_forest(training_features, training_classifications, test_features, test_classifications)
 
     # classify using RNN - test on test set
     # rnn(training_features, training_classifications, test_features, test_classifications)
