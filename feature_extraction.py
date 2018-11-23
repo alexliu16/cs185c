@@ -647,59 +647,7 @@ def random_forest(training_set_features, training_set_classifications, test_set_
 
     # write predictions to file
     create_predictions_file(predictions)
-
-
-def estimate_to_class(means):
-    # 0, 0.33, 0.66, 1
-    p1 = 0.33 / 2
-    p2 = (0.66 + 0.33) / 2
-    p3 = (1 + 0.66) / 2
-
-    for i in range(len(means)):
-        val = means[i]
-        if p1 < val:
-            means[i] = 0
-        elif p1 < val < p2:
-            means[i] = 0.33
-        elif p2 < val < p3:
-            means[i] = 0.66
-        elif p3 < val:
-            means[i] = 1
-
-    return means
-
-
-def get_truth_means(test_set_features):
-    mean = 0
-    means = []
-
-    for feature_list in test_set_features:
-        for feature in feature_list:
-            mean += feature
-        mean /= len(feature_list)
-        means.append(mean)
-        mean = 0
-
-    means = normalize(means)
-    means = estimate_to_class(means)
-    #print (means)
-
-
-def normalize(arr):
-    max = -99999
-    min = 99999
-
-    for m in arr:
-        if m > max:
-            max = m
-        if m < min:
-            min = m
-
-    for i in range(len(arr)):
-        arr[i] = (arr[i] - min) / (max - min)
     
-    return arr
-
 
 # used to determine accuracy for whether post is clickbait/not clickbait
 def get_accuracy(results, actual):
