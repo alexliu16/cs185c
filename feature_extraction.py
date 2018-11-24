@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import json_lines
 import jsonlines
 
@@ -5,7 +7,7 @@ from textblob import TextBlob
 import pyrenn  # for rnn
 
 import pandas as pd
-import matplotlib.pyplot as mpl
+import matplotlib.pyplot as plt
 
 from sklearn import svm
 from sklearn.multiclass import OneVsRestClassifier
@@ -15,6 +17,12 @@ from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsRegressor
 
 from sklearn.ensemble import RandomForestRegressor
+
+import numpy as np
+#from sklearn.model_selection import train_test_split
+#from sklearn.metrics import roc_auc_score
+#import keras
+#import keras.backend as K
 
 feature_names = []  # list of all feature names (in order)
 
@@ -481,23 +489,73 @@ def extract_features(file_name, set_type):
             if i == max_samples: #set_type == "training" and
                 break
 
+'''
+def rnn():
+    train_df = pd.read_csv()
+    train, dev = train_test_split(train_df, random_state=123, shuffle=True, test_size=0.1)
+    print("Training data shape:", train.shape)
+    print("Test data shape:", dev.shape)
 
-def rnn(training_data, test_data):
-    net = pyrenn.CreateNN([len(test_features),3,3,1])
 
+    tokenizer = keras.preprocessing.text.Tokenizer()
+    tokenizer.fit_on_texts(get_text(train))
 
-    # training data
-    P = training_data # input
-    Y = 1 # output
-    # test data
-    Ptest = 1 # input
-    Ytest =  1 # output
+def create_rnn_model():
+'''
 
-    # set the number of iterations (epochs) to 100 and the termination error to 1e-5.
-    # Training will stop after 100 iterations or when Error <= E_stop.
-    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=100, E_stop=1e-5)
-    y = pyrenn.NNOut(P, net)
-    ytest = pyrenn.NNOut(test_data, net)
+def rnn(training_set_features, training_set_class, test_set_features, test_set_class):
+    # 1D numpy arrays
+    # rows: inputs or outputs
+    # columns: samples
+    '''
+    i = 0
+    for t in training_set_features:
+        print(t)
+        training_set_features[i] = np.sum(t)
+        i +=1
+    '''
+    P = np.array(training_set_features)
+    P = np.transpose(P)
+    Y = np.array(training_set_class.append('Y'))
+    Y = np.transpose(Y)
+
+    print(P.shape)
+    print(Y.shape)
+    Ptest = np.array(test_set_features)
+    Ptest = np.transpose(Ptest)
+    Ytest = np.array(test_set_class)
+    Ytest = np.transpose(Ytest)
+    print(Ptest.shape)
+    print(Ytest.shape)
+    net = pyrenn.CreateNN([9, 3, 4, 1], dIn=[0], dIntern=[], dOut=[])
+    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=30, E_stop=1e-3)
+
+    y = pyrenn.NNOut(P,net)
+    ytest = pyrenn.NNOut(Ptest,net)
+
+    fig = plt.figure(figsize=(11,7))
+    ax0 = fig.add_subplot(211)
+    ax1 = fig.add_subplot(212)
+    fs=18
+
+    #Train Data
+    ax0.set_title('Train Data',fontsize=fs)
+    ax0.plot(P,y,color='b',lw=2,label='NN Output')
+    ax0.plot(P,Y,color='r',marker='None',linestyle=':',lw=3,markersize=8,label='Train Data')
+    ax0.tick_params(labelsize=fs-2)
+    ax0.legend(fontsize=fs-2,loc='upper left')
+    ax0.grid()
+
+    #Test Data
+    ax1.set_title('Test Data',fontsize=fs)
+    ax1.plot(Ptest,ytest,color='b',lw=2,label='NN Output')
+    ax1.plot(Ptest,Ytest,color='r',marker='None',linestyle=':',lw=3,markersize=8,label='Test Data')
+    ax1.tick_params(labelsize=fs-2)
+    ax1.legend(fontsize=fs-2,loc='upper left')
+    ax1.grid()
+
+    fig.tight_layout()
+    plt.show()
 
 
 # retrieve classifications for social media posts and insert it into specified list
@@ -647,7 +705,7 @@ def random_forest(training_set_features, training_set_classifications, test_set_
 
     # write predictions to file
     create_predictions_file(predictions)
-    
+
 
 # used to determine accuracy for whether post is clickbait/not clickbait
 def get_accuracy(results, actual):
@@ -682,16 +740,15 @@ def main():
 
     #svm(training_features, training_classifications, test_features, test_classifications)
 
-    # classify using K-NN - test on test set (TODO: should also test on training set)
+    # classify using K-NN - test on test set
     #knn(training_features, training_classifications, test_features, test_classifications)
 
     # classify using random forest
-    random_forest(training_features, training_classifications, test_features, test_classifications)
+    #random_forest(training_features, training_classifications, test_features, test_classifications)
 
     # classify using RNN - test on test set
-    # rnn(training_features, training_classifications, test_features, test_classifications)
-    #create_predictions_file()
-
+    rnn(training_features, training_classifications, test_features, test_classifications)
+ 
 
 if __name__ == '__main__':
     main()
