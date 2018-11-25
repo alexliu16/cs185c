@@ -19,9 +19,17 @@ from sklearn.neighbors import KNeighborsRegressor
 from sklearn.ensemble import RandomForestRegressor
 
 import numpy as np
+from numpy import array
 #from sklearn.model_selection import train_test_split
 #from sklearn.metrics import roc_auc_score
-#import keras
+
+from keras.models import Model
+from keras.layers import LSTM, Activation, Dense, Dropout, Input, Embedding
+from keras.optimizers import RMSprop
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing import sequence
+from keras.utils import to_categorical
+from keras.callbacks import EarlyStopping
 #import keras.backend as K
 
 feature_names = []  # list of all feature names (in order)
@@ -33,7 +41,7 @@ test_features = []  # list of extracted features for each social media post in t
 test_classifications = []  # classifications of whether each post is clickbait/not
 test_ids = []
 
-max_samples = 5000  # of samples to use for training
+max_samples = 3000  # of samples to use for training
 
 '''
 Definitions:
@@ -514,9 +522,10 @@ def rnn(training_set_features, training_set_class, test_set_features, test_set_c
         training_set_features[i] = np.sum(t)
         i +=1
     '''
+    print(training_features)
     P = np.array(training_set_features)
     P = np.transpose(P)
-    Y = np.array(training_set_class.append('Y'))
+    Y = np.array(training_set_class)
     Y = np.transpose(Y)
 
     print(P.shape)
@@ -527,13 +536,19 @@ def rnn(training_set_features, training_set_class, test_set_features, test_set_c
     Ytest = np.transpose(Ytest)
     print(Ptest.shape)
     print(Ytest.shape)
-    net = pyrenn.CreateNN([9, 3, 4, 1], dIn=[0], dIntern=[], dOut=[])
-    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=30, E_stop=1e-3)
+    #net = pyrenn.CreateNN([9, 3, 4, 1], dIn=[0], dIntern=[], dOut=[])
+    #net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=30, E_stop=1e-3)
 
-    y = pyrenn.NNOut(P,net)
-    ytest = pyrenn.NNOut(Ptest,net)
+    net = pyrenn.CreateNN([9, 1, 1])
+    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=50, E_stop=1e-5)
 
-    fig = plt.figure(figsize=(11,7))
+    y = pyrenn.NNOut(P, net)
+    ytest = pyrenn.NNOut(Ptest, net)
+    create_predictions_file(ytest)
+
+    print(ytest)
+
+    """fig = plt.figure(figsize=(11,7))
     ax0 = fig.add_subplot(211)
     ax1 = fig.add_subplot(212)
     fs=18
@@ -555,7 +570,7 @@ def rnn(training_set_features, training_set_class, test_set_features, test_set_c
     ax1.grid()
 
     fig.tight_layout()
-    plt.show()
+    plt.show()"""
 
 
 # retrieve classifications for social media posts and insert it into specified list
@@ -693,6 +708,7 @@ def knn(training_set_features, training_set_classifications, test_set_features, 
 
     # write predictions to file
     create_predictions_file(predictions)
+    print(type(predictions))
 
 
 def random_forest(training_set_features, training_set_classifications, test_set_features, test_set_classifications):
@@ -705,6 +721,74 @@ def random_forest(training_set_features, training_set_classifications, test_set_
 
     # write predictions to file
     create_predictions_file(predictions)
+
+
+def my_rnn(training_set_features, training_set_class, test_set_features, test_set_class):
+    # tokenize training text
+    training_post_texts = []
+    training_class = []
+
+    max_len = 0
+    with json_lines.open("training_data/instances.jsonl") as reader:
+        for obj in reader:
+            text = obj["postText"][0]
+            training_post_texts.append(text)
+
+            if len(text) > max_len:
+                max_len = len(text)
+
+    with json_lines.open("training_data/truth.jsonl") as reader:
+        for obj in reader:
+            val = obj["truthMean"]
+            if abs(val - 1) < 0.0001:
+                val = 0.999
+            training_class.append(val)
+
+    max_words = 1000
+    tok = Tokenizer(num_words=max_words)
+    tok.fit_on_texts(training_post_texts)
+    sequences = tok.texts_to_sequences(training_post_texts)
+    sequences_matrix = sequence.pad_sequences(sequences, maxlen=max_len)
+
+    # define rnn
+    inputs = Input(name='inputs', shape=[max_len])
+    layer = Embedding(max_words, 50, input_length=max_len)(inputs)
+    layer = LSTM(64)(layer)
+    layer = Dense(256, name='FC1')(layer)
+    layer = Activation('relu')(layer)
+    layer = Dropout(0.5)(layer)
+    layer = Dense(1, name='out_layer')(layer)
+    layer = Activation('sigmoid')(layer)
+    model = Model(inputs=inputs, outputs=layer)
+
+    model.compile(loss='sparse_categorical_crossentropy', optimizer=RMSprop(), metrics=['accuracy'])
+
+    # train model
+    model.fit(sequences_matrix, training_class, batch_size=128, epochs=10,
+              validation_split=0.2, callbacks=[EarlyStopping(monitor='val_loss', min_delta=0.0001)])
+
+    # tokenize test text
+    test_post_texts = []
+    with json_lines.open("test_data/instances.jsonl") as reader:
+        for obj in reader:
+            text = obj["postText"][0]
+            test_post_texts.append(text)
+
+    with json_lines.open("test_date/truth.jsonl") as reader:
+        for obj in reader:
+            test_ids.append(obj["id"])
+
+    tok.fit_on_texts(test_post_texts)
+    test_sequences = tok.texts_to_sequences(test_post_texts)
+    test_sequences_matrix = sequence.pad_sequences(test_sequences, maxlen=max_len)
+
+    results = model.predict(test_sequences_matrix, batch_size=128)
+    predictions = []
+    for arr in results:
+        predictions.append(arr[0])
+    print(predictions)
+
+    create_predictions_file(array(predictions, dtype=np.float64))
 
 
 # used to determine accuracy for whether post is clickbait/not clickbait
@@ -732,7 +816,7 @@ def create_predictions_file(predictions):
 def main():
     # extract features from training and test set
     create_feature_names_list()
-    read_files()
+    #read_files()
 
     # classify using linear SVM and perform RFE to determine most important features
     # ['POS 2-gram NNP VBZ', 'POS 2-gram IN NNP', 'Whether ? exists', 'Count POS pattern this/these NN', 'Number of POS', 'POS 2-gram IN JJ', 'Number of RBS']
@@ -747,7 +831,7 @@ def main():
     #random_forest(training_features, training_classifications, test_features, test_classifications)
 
     # classify using RNN - test on test set
-    rnn(training_features, training_classifications, test_features, test_classifications)
+    my_rnn(training_features, training_classifications, test_features, test_classifications)
  
 
 if __name__ == '__main__':
