@@ -497,56 +497,28 @@ def extract_features(file_name, set_type):
             if i == max_samples: #set_type == "training" and
                 break
 
-'''
-def rnn():
-    train_df = pd.read_csv()
-    train, dev = train_test_split(train_df, random_state=123, shuffle=True, test_size=0.1)
-    print("Training data shape:", train.shape)
-    print("Test data shape:", dev.shape)
-
-
-    tokenizer = keras.preprocessing.text.Tokenizer()
-    tokenizer.fit_on_texts(get_text(train))
-
-def create_rnn_model():
-'''
 
 def rnn(training_set_features, training_set_class, test_set_features, test_set_class):
     # 1D numpy arrays
     # rows: inputs or outputs
     # columns: samples
-    '''
-    i = 0
-    for t in training_set_features:
-        print(t)
-        training_set_features[i] = np.sum(t)
-        i +=1
-    '''
-    print(training_features)
     P = np.array(training_set_features)
     P = np.transpose(P)
     Y = np.array(training_set_class)
-    Y = np.transpose(Y)
+    Y = np.reshape(Y,(-1, len(training_set_class)))
 
-    print(P.shape)
-    print(Y.shape)
     Ptest = np.array(test_set_features)
     Ptest = np.transpose(Ptest)
     Ytest = np.array(test_set_class)
-    Ytest = np.transpose(Ytest)
-    print(Ptest.shape)
-    print(Ytest.shape)
-    #net = pyrenn.CreateNN([9, 3, 4, 1], dIn=[0], dIntern=[], dOut=[])
-    #net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=30, E_stop=1e-3)
+    Ytest = np.reshape(Ytest, (-1, len(test_set_class)))
 
-    net = pyrenn.CreateNN([9, 1, 1])
-    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=50, E_stop=1e-5)
+    net = pyrenn.CreateNN([9, 18, 18, 1], dIn=[0], dIntern=[], dOut=[])
+    net = pyrenn.train_LM(P, Y, net, verbose=True, k_max=30, E_stop=1e-3)
 
     y = pyrenn.NNOut(P, net)
     ytest = pyrenn.NNOut(Ptest, net)
-    create_predictions_file(ytest)
 
-    print(ytest)
+    create_predictions_file(ytest)
 
     """fig = plt.figure(figsize=(11,7))
     ax0 = fig.add_subplot(211)
@@ -774,7 +746,7 @@ def my_rnn(training_set_features, training_set_class, test_set_features, test_se
             text = obj["postText"][0]
             test_post_texts.append(text)
 
-    with json_lines.open("test_date/truth.jsonl") as reader:
+    with json_lines.open("test_data/truth.jsonl") as reader:
         for obj in reader:
             test_ids.append(obj["id"])
 
@@ -831,7 +803,8 @@ def main():
     #random_forest(training_features, training_classifications, test_features, test_classifications)
 
     # classify using RNN - test on test set
-    my_rnn(training_features, training_classifications, test_features, test_classifications)
+    #my_rnn(training_features, training_classifications, test_features, test_classifications)
+    rnn(training_features, training_classifications, test_features, test_classifications)
  
 
 if __name__ == '__main__':
